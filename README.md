@@ -102,21 +102,6 @@ npx vercel --prod
 - Do not commit ELEVENLABS_API_KEY or other secrets to source control.
 - The app sends title + summary to ElevenLabs to synthesize speech. Consider privacy and consent for the content you process.
 
-## Tests & linting
-
-- Run tests:
-
-```bash
-npm run test
-```
-
-- Type checks & lint:
-
-```bash
-npm run typecheck
-npm run lint
-```
-
 ## Contributing
 
 Issues and PRs welcome. Run tests and linters before submitting changes.
