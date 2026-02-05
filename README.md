@@ -1,5 +1,3 @@
-// ...existing code...
-
 # News-reader
 
 A minimal React + TypeScript + Vite app for reading Atom/RSS feeds. Provides a small server-side utility that fetches and parses feeds and returns a typed list of items with title, link and summary. Each article's title and summary can be synthesized to speech using the ElevenLabs API.
