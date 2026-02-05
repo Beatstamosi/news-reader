@@ -1,10 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import "./App.css";
 import type { FeedItem } from "../api/rss";
+import getAudio from "./getAudio";
+
+// loading indicator
+// playback from current
 
 function App() {
-  const [news, setNews] = useState<FeedItem[]>();
-  const [play, setPlay] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [news, setNews] = useState<FeedItem[]>([]);
+  const [playing, setPlaying] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [displayNews, setDisplayNews] = useState<FeedItem[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Fetch RSS data converted to audio
   useEffect(() => {
@@ -17,29 +25,68 @@ function App() {
     saveFeed();
   }, []);
 
-  // pause playback and play from same
-  // refresh button to fetch news
-  // display article name + link
+  useEffect(() => {
+    if (!playing || !news || currentIndex >= news?.length) return;
+
+    const playNext = async () => {
+      setLoading(true);
+      const text = `${news?.[currentIndex].title} - ${news?.[currentIndex].summary}`;
+      const stream = await getAudio(text);
+      const url = URL.createObjectURL(stream);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      await new Promise<void>((resolve) => {
+        audio.onended = () => resolve();
+        audio.oncanplaythrough = () => setLoading(false);
+        audio.play();
+      });
+
+      // render title + link
+      setDisplayNews((p) => [...p, news[currentIndex]]);
+
+      // on end of play increase index
+      setCurrentIndex((i) => i + 1);
+    };
+
+    playNext();
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [playing, currentIndex, news]);
 
   const handlePlayPause = () => {
-    setPlay((p) => !p);
+    setPlaying((p) => !p);
+    if (playing && audioRef.current) {
+      audioRef.current.play();
+    }
   };
 
   return (
     <>
       <h1>Höre dir den Heise News Feed an</h1>
-      <div className="card">
-        <button onClick={handlePlayPause}>{play ? "⏸ Pause" : "▶︎ Play"}</button>
+      <div className="playBtnContainer">
+        <button onClick={handlePlayPause} disabled={loading}>
+          {loading ? "Loading..." : playing ? "⏸ Pause" : "▶︎ Play"}
+        </button>
       </div>
-      <ul>
-        {news?.map((n, index) => {
-          return (
-            <li key={index}>
-              <a href={n.link}>{n.title}</a>;
-            </li>
-          );
-        })}
-      </ul>
+      <div>
+        <ul>
+          {displayNews?.map((n, index) => {
+            return (
+              <li key={index}>
+                <a href={n.link} target="_blank">
+                  {n.title}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </>
   );
 }

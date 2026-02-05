@@ -1,6 +1,6 @@
 import axios from "axios";
 import { parseStringPromise } from "xml2js";
-import type { VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const RSS_FEED_URL = "https://www.heise.de/rss/heise-Rubrik-IT-atom.xml";
 
@@ -17,31 +17,37 @@ interface RSSEntry {
   content?: { _: string }[];
 }
 
-export default async function handler(res: VercelResponse) {
+type XmlField = Array<
+  string | { _: string; $?: Record<string, string> } | undefined
+>;
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const response = await axios.get(RSS_FEED_URL);
     const result = await parseStringPromise(response.data);
 
-    const entries = result?.feed?.entry || [];
+    const entries: RSSEntry[] = result?.feed?.entry || [];
 
-    const getSummary = (entry: RSSEntry): string => {
-      if (entry.summary && entry.summary[0]) {
-        const s = entry.summary[0];
-        if (typeof s === "string") return s;
-        if (s._) return s._;
-      }
-      if (entry.content && entry.content[0]) {
-        const c = entry.content[0];
-        if (typeof c === "string") return c;
-        if (c._) return c._;
-      }
+    //filter out advertisements
+    const filteredEntries = entries.filter(
+      (entry) => !entry.title.some((t) => t.includes("heise-Angebot")),
+    );
+
+    const getText = (field?: XmlField): string => {
+      if (!field || !field[0]) return "";
+
+      const f = field[0];
+
+      if (typeof f === "string") return f;
+      if (f && typeof f._ === "string") return f._;
+
       return "";
     };
 
-    const items: FeedItem[] = entries.map((entry: RSSEntry) => ({
-      title: entry.title?.[0] || "",
-      link: (entry.link && entry.link[0] && entry.link[0].$.href) || "",
-      summary: getSummary(entry),
+    const items: FeedItem[] = filteredEntries.map((entry: RSSEntry) => ({
+      title: getText(entry.title),
+      link: entry.link?.[0]?.$?.href || "",
+      summary: getText(entry.summary) || getText(entry.content),
     }));
 
     res.status(200).json(items);
